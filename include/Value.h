@@ -21,6 +21,9 @@ public:
     Value(double data,std::string label,std::string op);
     Value * operator+(Value & other);
     Value * operator*(Value & other);
+    Value * operator-(Value & other);
+    Value* operator^(Value &other);
+
     Value * tanh();
 
     void backward();

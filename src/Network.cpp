@@ -30,7 +30,7 @@ Value Neuron::activator(std::vector<double> x){
         result += (this->w[i].data * x[i]);
     }
 
-    return Value(result + this->b[0].data,"","");
+    return *Value(result + this->b[0].data,"","").tanh();
 }
 
 std::vector<Value> Neuron::parameters(){
@@ -46,3 +46,65 @@ std::vector<Value> Neuron::parameters(){
 
     return _parameters;
 }   
+
+
+Layer::Layer(int nin, int nout){
+    for (int i = 0; i<nout; i++){
+        this->neurons.push_back(Neuron(nin));
+    }
+}
+
+std::vector<Value> Layer::activator(std::vector<double> x){
+
+    std::vector<Value> out {};
+
+    for(auto& neuron:this->neurons){
+        out.push_back(neuron.activator(x));
+    }
+
+    return out;
+
+}
+std::vector<Value> Layer::parameters(){
+    std::vector<Value> _parameters {};
+    
+    for(auto& neuron:this->neurons){
+        std::vector<Value> temp;
+        temp = neuron.parameters();
+        _parameters.insert(_parameters.end(),temp.begin(),temp.end());
+    }
+
+    return _parameters;
+}
+
+MLP::MLP(std::vector<int> nin, std::vector<int> nout){
+    nin.insert(nin.end(),nout.begin(), nout.end());
+
+    for (int i = 0; i< nout.size(); i++){
+        this->layers.push_back(Layer(nin[i], nin[i+1]));
+    }
+
+}
+
+Value MLP::activator(std::vector<double> x){
+
+    std::vector<Value> out;
+
+    for(auto& layer:this->layers){
+        out = layer.activator(x);
+    }
+
+    return out[0];
+
+}
+std::vector<Value> MLP::parameters(){
+    std::vector<Value> _parameters {};
+    
+    for(auto& layer:this->layers){
+        std::vector<Value> temp;
+        temp = layer.parameters();
+        _parameters.insert(_parameters.end(),temp.begin(),temp.end());
+    }
+
+    return _parameters;
+}

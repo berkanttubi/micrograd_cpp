@@ -1,46 +1,72 @@
 #include "Value.h"
+#include "Network.h"
 #include <sstream>
+#include <cmath>
 
-
-
+Value calculate_loss(std::vector<double> ygt, std::vector<Value> ypreds);
 int main() {
-    // Değerlerin oluşturulması
-    auto x1 = std::make_shared<Value>(2.0, "a", "");
-    auto x2 = std::make_shared<Value>(0.0, "b", "");
-    auto w1 = std::make_shared<Value>(-3.0, "w1", "");
-    auto w2 = std::make_shared<Value>(1.0, "w2", "");
-    auto b = std::make_shared<Value>(6.8813735870195432, "b", "");
+    Value square = Value(2,"","");
+    std::vector<int> nin = {3};
+    std::vector<int> nout = {1,1,1};
+    auto network = MLP(nin, nout);
 
-    // Hesaplamaların yapılması
-    auto x1w1 = *x1 * *w1;
-    x1w1->label = "x1*w1";
-    x1w1->_op = "";
-    auto x2w2 = *x2 * *w2;
-    x2w2->label = "x2*w2";
-    x2w2->_op = "";
-    auto x1w1x2w2 = *x1w1 + *x2w2;
-    x1w1x2w2->label = "x1*w1 + x2*w2";
-    x1w1x2w2->_op = "";
-    auto n = *x1w1x2w2 + *b; 
-    n->label = "n";
-    n->_op = "";
-    auto o = n->tanh(); 
-    o->label = "o";
-    o->_op = "";
-    o->grad = 1;
-    o->backward();
+    std::vector<std::vector<double>> data = {
+        {2.0, 3.0, -1.0},
+        {3.0, -1.0, 0.5},
+        {0.5, 1.0, 1.0},
+        {1.0, 1.0, -1.0}
+    };
 
-    std::cout << "Gradients:" << std::endl;
-    std::cout << "o grad: " << o->grad << std::endl;
-    std::cout << "n grad: " << n->grad << std::endl;
-    std::cout << "b grad: " << b->grad << std::endl;
-    std::cout << "x1w1x2w2 grad: " << x1w1x2w2->grad << std::endl;
-    std::cout << "x2w2 grad: " << x2w2->grad << std::endl;
-    std::cout << "x1w1 grad: " << x1w1->grad << std::endl;
-    std::cout << "w2 grad: " << w2->grad << std::endl;
-    std::cout << "w1 grad: " << w1->grad << std::endl;
-    std::cout << "x2 grad: " << x2->grad << std::endl;
-    std::cout << "x1 grad: " << x1->grad << std::endl;
+    std::vector<double> label = {1.0, -1.0, -1.0, 1.0};
+    
+
+    for (int epoch = 0; epoch<100; epoch++){
+        std::vector<Value> ypreds {};
+
+        for(auto& values: data){
+        auto pred = network.activator(values);
+        ypreds.push_back(pred);
+        }
+
+        Value loss = Value(0.0, "", "");
+        for (size_t i = 0; i < label.size(); i++) {
+            Value ygt = Value(label[i], "", "");
+            Value diff = *(ypreds[i] - ygt);
+            Value diff_square = *(diff ^ square);
+            loss = *(loss+diff_square);
+            std::cout<<loss.data<<std::endl;
+        }
+        for(auto& p:network.parameters()){
+            p.grad = 0.0;
+        }
+        loss.backward();
+        
+        for(auto& p:network.parameters()){
+            p.data += -0.1 * p.grad;
+        }
+
+        std::cout<<"Epoch: "<<epoch<<" |  Loss: "<<loss.data<<std::endl;
+    }
+
+    
+
+
 
     return 0;
+}
+
+
+Value calculate_loss(std::vector<double> ygt, std::vector<Value> ypreds){
+    Value loss = Value(0.0,"","");
+    Value square = Value(2,"","");
+    for(int i = 0; i< ypreds.size(); i++){
+
+        Value temp = Value(ygt[i],"","");
+        Value new_ = *(ypreds[i] - temp);
+        Value new_2 = *(new_ ^ square);
+        loss = *(loss + new_2);
+    }
+
+    return loss;
+
 }
