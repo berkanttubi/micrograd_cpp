@@ -1,75 +1,94 @@
 #include "Value.h"
 
+Value::Value() {
+    this->label = "uninitialized";
+}
 
-Value::Value(double data,std::string label, std::string op){
-
+Value::Value(double data, std::string label) {
     this->data = data;
+    this->label = label;
     this->grad = 0.0;
-    this-> label = label;
-    this->_op = op;
-    //std::cout<< "Value "<<this->data<<" is created! \n";
+}
+
+Value::Value(double data, std::vector<std::shared_ptr<Value>> _children, std::string label) {
+    this->data = data;
+    this->label = label;
+    this->_children = std::move(_children);
 
 }
 
 
 
-Value * Value::operator+(Value & other){
+std::shared_ptr<Value> Value::operator+(std::shared_ptr<Value> &obj) {
+    double new_data = (*obj).data + this->data;
+    auto new_value = std::make_shared<Value>(new_data, std::vector<std::shared_ptr<Value>>{shared_from_this(), obj}, (*obj).label + "+" + this->label);
+    new_value->_backward = [self = shared_from_this(), obj, new_value]() {
+        (*obj).grad += 1.0 * new_value->grad;
+        self->grad += 1.0 * new_value->grad;
+    };
+    return new_value;
+}
 
-    auto data = this->data + other.data;
-    Value * temp = new Value(data,"","+");
+std::shared_ptr<Value> Value::operator*(std::shared_ptr<Value> &obj){
 
-    temp->_prev = {this, &other};
-    temp->_backward = [this, &other, temp]{
-        this->grad += temp->grad;
-        other.grad += temp->grad;
+    double new_data = (*obj).data * this->data;
+    auto new_value = std::make_shared<Value>(new_data, std::vector<std::shared_ptr<Value>>{shared_from_this(), obj}, obj->label + "*" + this->label);
+
+    new_value->_backward = [self = shared_from_this(), obj, new_value]() {
+        (*obj).grad += self->data * new_value->grad;
+        self->grad += (*obj).data * new_value->grad;
     };
 
-    return temp;
+
+    return new_value;
 }
 
-Value * Value::operator*(Value & other){
+std::shared_ptr<Value> Value::operator-(std::shared_ptr<Value> &obj) {
+    auto negative = std::make_shared<Value>(-1, "");
+    auto negated_obj = *negative * obj;
+    return shared_from_this()->operator+(negated_obj);
+}
 
-    auto data = this->data * other.data;
-    Value * temp = new Value(data,"","*");
-    temp->_prev = {this, &other};
-    temp->_backward = [this, &other, temp]{
-        this->grad += other.data * temp->grad;
-        other.grad += this->data * temp->grad;
+
+std::shared_ptr<Value> Value::operator^(std::shared_ptr<Value> &obj){
+
+    auto data = this->data * (*obj).data ;
+    auto new_value = std::make_shared<Value>(data,std::vector<std::shared_ptr<Value>>{shared_from_this(), obj},obj->label + "^" + this->label);
+    new_value->_backward = [this, &obj, new_value]{
+        this->grad += ((*obj).data * std::pow(this->data,((*obj).data)-1)) * (*obj).grad;
+
     };
-    return temp;
+    return new_value;
 }
 
-Value * Value::tanh(){
+std::shared_ptr<Value> Value::tanh() {
     double n = this->data;
-    double t = ((std::exp(2*n) -1) / (std::exp(2*n) + 1));
-    Value * temp = new Value(data,"tanh","tan()");
-    temp->_prev = {this};
-    temp->_backward = [this, temp, t]{
-        this->grad += (1 - std::pow(t,2)) * temp->grad;
+    double t = ((std::exp(2*n) - 1) / (std::exp(2*n) + 1));
+    auto new_value = std::make_shared<Value>(t, std::vector<std::shared_ptr<Value>>{shared_from_this()}, "tanh()");
+    new_value->_backward = [self = shared_from_this(), new_value, t]() {
+        self->grad += (1 - std::pow(t, 2)) * new_value->grad;
     };
-
-    return temp;
+    return new_value;
 }
-
-
 
 void Value::backward() {
-    std::vector<Value*> topo;
-    std::set<Value*> visited;
+    std::vector<std::shared_ptr<Value>> topo;
+    std::set<std::shared_ptr<Value>> visited;
 
-
-    std::function<void(Value*)> build_topo = [&](Value* v) {
-            if (visited.find(v) == visited.end()) {
-                visited.insert(v);
-                for (Value* child : v->_prev) {
+    std::function<void(std::shared_ptr<Value>)> build_topo = [&](std::shared_ptr<Value> v) {
+        if (visited.find(v) == visited.end()) {
+            visited.insert(v);
+            for (const auto& child : v->_children) {
+                if (child != nullptr) {
                     build_topo(child);
                 }
-                topo.push_back(v);
             }
-        };
+            topo.push_back(v);
+        }
+    };
 
 
-    build_topo(this);
+    build_topo(shared_from_this());
     this->grad = 1.0;
     for (auto it = topo.rbegin(); it != topo.rend(); ++it) {
         try {
@@ -82,4 +101,6 @@ void Value::backward() {
     }
 }
 
-  
+void Value::print_value() {
+    std::cout << "Value: " << this->data << std::endl;
+}

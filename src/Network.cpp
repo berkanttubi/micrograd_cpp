@@ -1,110 +1,98 @@
 #include "Network.h"
 #include <random>
 #include <sstream>
+#include <memory>
+#include <iostream>
 
-
-Neuron::Neuron(int nin){
+// Constructor for Neuron
+Neuron::Neuron(int nin) {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<> dis(-1.0, 1.0);
-    for(int i = 0; i<nin; i++){
+    for(int i = 0; i < nin; i++) {
         auto random_number = dis(gen);
-        this->w.push_back(Value(random_number, "w", ""));
+        this->w.push_back(std::make_shared<Value>(random_number, "w"));
     }
     auto random_number = dis(gen);
-    this->b.push_back(Value(random_number, "b", ""));
+    this->b = std::make_shared<Value>(random_number, "b");
 }
 
-void Neuron::printer(){
-
-    for(auto& i:this->w){
-        std::cout<<i.data<<std::endl;
+// Print weights and biases
+void Neuron::printer() {
+    for(auto& i : this->w) {
+        std::cout << i->data << std::endl;
     }
-    std::cout<<"b: "<<this->b[0].data;
+    std::cout << "b: " << this->b->data << std::endl;
 }
 
-Value Neuron::activator(std::vector<double> x){
-
-    double result = 0.0;
-    for(int i = 0; i< x.size(); i++){
-        result += (this->w[i].data * x[i]);
+// Activation function for Neuron
+std::shared_ptr<Value> Neuron::activator(std::vector<std::shared_ptr<Value>>& x) {
+    auto result = std::make_shared<Value>(0.0, "");
+    for(size_t i = 0; i < x.size(); i++) {
+        auto temp = *this->w[i] * x[i];
+        result = *result + temp;
     }
-
-    return *Value(result + this->b[0].data,"","").tanh();
+    result = *result + this->b;
+    return result->tanh();
 }
 
-std::vector<Value> Neuron::parameters(){
-    std::vector<Value> _parameters {};
-    
-    for(auto&i : this->w){
-        _parameters.push_back(i);
-    }
-
-    for(auto&i : this->b){
-        _parameters.push_back(i);
-    }
-
+// Get parameters for Neuron
+std::vector<std::shared_ptr<Value>> Neuron::parameters() {
+    std::vector<std::shared_ptr<Value>> _parameters;
+    _parameters.insert(_parameters.end(), this->w.begin(), this->w.end());
+    _parameters.push_back(this->b);
     return _parameters;
-}   
+}
 
-
-Layer::Layer(int nin, int nout){
-    for (int i = 0; i<nout; i++){
+// Constructor for Layer
+Layer::Layer(int nin, int nout) {
+    for (int i = 0; i < nout; i++) {
         this->neurons.push_back(Neuron(nin));
     }
 }
 
-std::vector<Value> Layer::activator(std::vector<double> x){
-
-    std::vector<Value> out {};
-
-    for(auto& neuron:this->neurons){
+// Activation function for Layer
+std::vector<std::shared_ptr<Value>> Layer::activator(std::vector<std::shared_ptr<Value>>& x) {
+    std::vector<std::shared_ptr<Value>> out;
+    for(auto& neuron : this->neurons) {
         out.push_back(neuron.activator(x));
     }
-
     return out;
-
 }
-std::vector<Value> Layer::parameters(){
-    std::vector<Value> _parameters {};
-    
-    for(auto& neuron:this->neurons){
-        std::vector<Value> temp;
-        temp = neuron.parameters();
-        _parameters.insert(_parameters.end(),temp.begin(),temp.end());
-    }
 
+// Get parameters for Layer
+std::vector<std::shared_ptr<Value>> Layer::parameters() {
+    std::vector<std::shared_ptr<Value>> _parameters;
+    for(auto& neuron : this->neurons) {
+        auto temp = neuron.parameters();
+        _parameters.insert(_parameters.end(), temp.begin(), temp.end());
+    }
     return _parameters;
 }
 
-MLP::MLP(std::vector<int> nin, std::vector<int> nout){
-    nin.insert(nin.end(),nout.begin(), nout.end());
-
-    for (int i = 0; i< nout.size(); i++){
-        this->layers.push_back(Layer(nin[i], nin[i+1]));
+// Constructor for MLP
+MLP::MLP(const std::vector<int>& nin, const std::vector<int>& nout) {
+    std::vector<int> sizes = nin;
+    sizes.insert(sizes.end(), nout.begin(), nout.end());
+    for (size_t i = 0; i < sizes.size() - 1; i++) {
+        this->layers.push_back(Layer(sizes[i], sizes[i + 1]));
     }
-
 }
 
-Value MLP::activator(std::vector<double> x){
-
-    std::vector<Value> out;
-
-    for(auto& layer:this->layers){
-        out = layer.activator(x);
+// Activation function for MLP
+std::vector<std::shared_ptr<Value>> MLP::activator(std::vector<std::shared_ptr<Value>>& x) {
+    for(auto& layer : this->layers) {
+        x = layer.activator(x);
     }
-
-    return out[0];
-
+    return x;
 }
-std::vector<Value> MLP::parameters(){
-    std::vector<Value> _parameters {};
-    
-    for(auto& layer:this->layers){
-        std::vector<Value> temp;
-        temp = layer.parameters();
-        _parameters.insert(_parameters.end(),temp.begin(),temp.end());
-    }
 
+// Get parameters for MLP
+std::vector<std::shared_ptr<Value>> MLP::parameters() {
+    std::vector<std::shared_ptr<Value>> _parameters;
+    for(auto& layer : this->layers) {
+        auto temp = layer.parameters();
+        _parameters.insert(_parameters.end(), temp.begin(), temp.end());
+    }
     return _parameters;
 }

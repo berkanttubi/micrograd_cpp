@@ -1,32 +1,35 @@
+#pragma once
 #include "Value.h"
 #include <iostream>
+#include <vector>
+#include <memory>
 
-class Neuron{
 
+class Neuron {
 public:
     Neuron(int nin);
     void printer();
-    Value activator(std::vector<double>);
-    std::vector<Value> parameters();
-    std::vector<Value> w;
-    std::vector<Value> b;
+    std::shared_ptr<Value> activator(std::vector<std::shared_ptr<Value>>& x);
+    std::vector<std::shared_ptr<Value>> parameters();
+    
+    std::vector<std::shared_ptr<Value>> w;
+    std::shared_ptr<Value> b;
 };
 
-
-class Layer{
-
+class Layer {
 public:
-    Layer(int nin, int noun);
-    std::vector<Value> activator(std::vector<double>);
-    std::vector<Value> parameters();
+    Layer(int nin, int nout);
+    std::vector<std::shared_ptr<Value>> activator(std::vector<std::shared_ptr<Value>>& x);
+    std::vector<std::shared_ptr<Value>> parameters();
+    
     std::vector<Neuron> neurons;
 };
 
-class MLP{
-
+class MLP {
 public:
-    MLP(std::vector<int> nin, std::vector<int> nout);
-    Value activator(std::vector<double>);
-    std::vector<Value> parameters();
+    MLP(const std::vector<int>& nin, const std::vector<int>& nout);
+    std::vector<std::shared_ptr<Value>> activator(std::vector<std::shared_ptr<Value>>& x);
+    std::vector<std::shared_ptr<Value>> parameters();
+    
     std::vector<Layer> layers;
 };

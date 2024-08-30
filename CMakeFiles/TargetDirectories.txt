@@ -1,0 +1,3 @@
+/home/berkant/Desktop/micrograd/CMakeFiles/microgradcpp_beko.dir
+/home/berkant/Desktop/micrograd/CMakeFiles/edit_cache.dir
+/home/berkant/Desktop/micrograd/CMakeFiles/rebuild_cache.dir

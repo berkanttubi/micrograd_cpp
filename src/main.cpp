@@ -1,72 +1,71 @@
 #include "Value.h"
 #include "Network.h"
-#include <sstream>
-#include <cmath>
+#include <memory>
+#include <iostream>
 
-Value calculate_loss(std::vector<double> ygt, std::vector<Value> ypreds);
+
+
+std::vector<std::vector<std::shared_ptr<Value>>> convert_data(const std::vector<std::vector<double>>& data);
+
 int main() {
-    Value square = Value(2,"","");
+    auto square = std::make_shared<Value>(2, "");
     std::vector<int> nin = {3};
-    std::vector<int> nout = {1,1,1};
+    std::vector<int> nout = {4,4,1};
     auto network = MLP(nin, nout);
-
     std::vector<std::vector<double>> data = {
         {2.0, 3.0, -1.0},
         {3.0, -1.0, 0.5},
         {0.5, 1.0, 1.0},
         {1.0, 1.0, -1.0}
     };
-
+    std::vector<std::vector<std::shared_ptr<Value>>> converted_data = convert_data(data);
     std::vector<double> label = {1.0, -1.0, -1.0, 1.0};
-    
-
-    for (int epoch = 0; epoch<100; epoch++){
-        std::vector<Value> ypreds {};
-
-        for(auto& values: data){
-        auto pred = network.activator(values);
-        ypreds.push_back(pred);
+    std::vector<std::shared_ptr<Value>> ypreds;
+    std::shared_ptr<Value> final_loss;
+    for (int epoch = 0; epoch < 300; epoch++) {
+        ypreds.clear();
+        for(auto& values : converted_data) {
+            auto pred = network.activator(values);
+            ypreds.push_back(pred[0]);
         }
-
-        Value loss = Value(0.0, "", "");
+        std::shared_ptr<Value> total_loss = std::make_shared<Value>(0.0, "");
         for (size_t i = 0; i < label.size(); i++) {
-            Value ygt = Value(label[i], "", "");
-            Value diff = *(ypreds[i] - ygt);
-            Value diff_square = *(diff ^ square);
-            loss = *(loss+diff_square);
-            std::cout<<loss.data<<std::endl;
+            auto ygt = std::make_shared<Value>(label[i], "");
+
+            auto loss = *ypreds[i]-ygt;
+
+            loss = loss->operator^(square);
+            total_loss = *total_loss + loss;
         }
-        for(auto& p:network.parameters()){
-            p.grad = 0.0;
-        }
-        loss.backward();
-        
-        for(auto& p:network.parameters()){
-            p.data += -0.1 * p.grad;
+        //final_loss = total_loss / std::make_shared<Value>(label.size());
+
+        for(auto& p : network.parameters()) {
+            p->grad = 0.0;
         }
 
-        std::cout<<"Epoch: "<<epoch<<" |  Loss: "<<loss.data<<std::endl;
+        total_loss->backward();
+
+        for(auto& p : network.parameters()) {
+            std::cout<<p->grad<<"\n";
+            p->data += -0.1 * p->grad;
+        }
+
+        std::cout << "Epoch: " << epoch << " | Loss: " << total_loss->data << std::endl;
     }
 
     
-
-
 
     return 0;
 }
 
-
-Value calculate_loss(std::vector<double> ygt, std::vector<Value> ypreds){
-    Value loss = Value(0.0,"","");
-    Value square = Value(2,"","");
-    for(int i = 0; i< ypreds.size(); i++){
-
-        Value temp = Value(ygt[i],"","");
-        Value new_ = *(ypreds[i] - temp);
-        Value new_2 = *(new_ ^ square);
-        loss = *(loss + new_2);
+std::vector<std::vector<std::shared_ptr<Value>>> convert_data(const std::vector<std::vector<double>>& data) {
+    std::vector<std::vector<std::shared_ptr<Value>>> result;
+    for (const auto& row : data) {
+        std::vector<std::shared_ptr<Value>> row_ptrs;
+        for (double value : row) {
+            row_ptrs.push_back(std::make_shared<Value>(value, ""));
+        }
+        result.push_back(row_ptrs);
     }
-
-    return loss;
-
+    return result;
 }
