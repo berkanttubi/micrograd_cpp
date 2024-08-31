@@ -15,11 +15,6 @@ Build with CMake, eg
 ```bash
 $ cmake .
 $ make
+$ ./microgradcpp_beko
 ```
 
-### Example usage
-
-The main.cpp includes an example usage of the engine. The example equation that is in the Karparhy's video is implemented here. The result can be seen in terminal but the example visualised equation in the main.cpp file is below. 
-![](equation.png)
-
-TODO: Visualizing will be added.
