@@ -1,1 +1,0 @@
-/usr/bin/c++ -g CMakeFiles/microgradcpp_beko.dir/src/Network.cpp.o CMakeFiles/microgradcpp_beko.dir/src/Value.cpp.o CMakeFiles/microgradcpp_beko.dir/src/main.cpp.o -o microgradcpp_beko 
