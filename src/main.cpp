@@ -8,10 +8,10 @@
 std::vector<std::vector<std::shared_ptr<Value>>> convert_data(const std::vector<std::vector<double>>& data);
 
 int main() {
-    auto square = std::make_shared<Value>(2, "");
     std::vector<int> nin = {3};
-    std::vector<int> nout = {4,4,1};
+    std::vector<int> nout = {4,1}; 
     auto network = MLP(nin, nout);
+
     std::vector<std::vector<double>> data = {
         {2.0, 3.0, -1.0},
         {3.0, -1.0, 0.5},
@@ -19,25 +19,28 @@ int main() {
         {1.0, 1.0, -1.0}
     };
     std::vector<std::vector<std::shared_ptr<Value>>> converted_data = convert_data(data);
-    std::vector<double> label = {1.0, -1.0, -1.0, 1.0};
-    std::vector<std::shared_ptr<Value>> ypreds;
-    std::shared_ptr<Value> final_loss;
-    for (int epoch = 0; epoch < 300; epoch++) {
-        ypreds.clear();
-        for(auto& values : converted_data) {
-            auto pred = network.activator(values);
-            ypreds.push_back(pred[0]);
+    std::vector<std::vector<std::shared_ptr<Value>>> test = convert_data(data);
+     for(size_t i = 0; i < converted_data.size(); i++) {
+        std::cout << "Input: ";
+        for(auto& val : converted_data[i]) {
+            std::cout << val->data << " ";
         }
-        std::shared_ptr<Value> total_loss = std::make_shared<Value>(0.0, "");
-        for (size_t i = 0; i < label.size(); i++) {
-            auto ygt = std::make_shared<Value>(label[i], "");
+     }
+    std::vector<double> label = {1.0, 0.0, 0.0, 1.0};  // Changed to 0 and 1 for binary classification
 
-            auto loss = *ypreds[i]-ygt;
+    double learning_rate = 0.01;
+    double clip_value = 1.0;
 
-            loss = loss->operator^(square);
+    for (int epoch = 0; epoch < 200; epoch++) {
+        std::shared_ptr<Value> total_loss = std::make_shared<Value>(0.0, "total_loss");
+
+        for(size_t i = 0; i < converted_data.size(); i++) {
+            auto pred = network.activator(converted_data[i]);
+            auto ygt = std::make_shared<Value>(label[i], "ygt");
+            auto diff = *pred[0] - ygt;
+            auto loss = *diff * diff;  // MSE loss
             total_loss = *total_loss + loss;
         }
-        //final_loss = total_loss / std::make_shared<Value>(label.size());
 
         for(auto& p : network.parameters()) {
             p->grad = 0.0;
@@ -45,15 +48,30 @@ int main() {
 
         total_loss->backward();
 
+        // Gradient clipping and update
         for(auto& p : network.parameters()) {
-            std::cout<<p->grad<<"\n";
-            p->data += -0.1 * p->grad;
+            if (std::isnan(p->grad)) {
+                std::cout << "NaN gradient detected!" << std::endl;
+                return 1;
+            }
+            p->grad = std::max(std::min(p->grad, clip_value), -clip_value);
+            p->data += -learning_rate * p->grad;
         }
 
-        std::cout << "Epoch: " << epoch << " | Loss: " << total_loss->data << std::endl;
+        if (epoch % 10 == 0) {
+            std::cout << "Epoch: " << epoch << " | Loss: " << total_loss->data << std::endl;
+        }
     }
 
+
     
+
+    // Test the trained network
+    for(size_t i = 0; i < test.size(); i++) {
+        auto pred = network.activator(test[i]);
+        
+        std::cout << "| Prediction: " << pred[0]->data << " | Target: " << label[i] << std::endl;
+    }
 
     return 0;
 }

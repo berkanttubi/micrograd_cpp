@@ -50,16 +50,38 @@ std::shared_ptr<Value> Value::operator-(std::shared_ptr<Value> &obj) {
 }
 
 
-std::shared_ptr<Value> Value::operator^(std::shared_ptr<Value> &obj){
-
-    auto data = this->data * (*obj).data ;
-    auto new_value = std::make_shared<Value>(data,std::vector<std::shared_ptr<Value>>{shared_from_this(), obj},obj->label + "^" + this->label);
-    new_value->_backward = [this, &obj, new_value]{
-        this->grad += ((*obj).data * std::pow(this->data,((*obj).data)-1)) * (*obj).grad;
-
+std::shared_ptr<Value> Value::operator^(std::shared_ptr<Value> &obj) {
+    // Use std::pow for the forward pass
+    auto new_data = std::pow(this->data, obj->data);
+    
+    auto new_value = std::make_shared<Value>(new_data, std::vector<std::shared_ptr<Value>>{shared_from_this(), obj}, obj->label + "^" + this->label);
+    
+    new_value->_backward = [self = shared_from_this(), obj, new_value]() {
+        // Handle potential division by zero and log of negative numbers
+        if (self->data > 0) {
+            double log_self = std::log(std::abs(self->data));
+            self->grad += obj->data * std::pow(self->data, obj->data - 1) * new_value->grad;
+            obj->grad += log_self * new_value->data * new_value->grad;
+        } else if (self->data == 0) {
+            // Handle the case where base is zero
+            if (obj->data > 0) {
+                self->grad += 0; // Derivative is 0 for x^n when x=0 and n>0
+                obj->grad += 0; // Derivative undefined, set to 0
+            } else {
+                // 0^0 or 0^negative is undefined, set gradients to 0
+                self->grad += 0;
+                obj->grad += 0;
+            }
+        } else {
+            // Handle negative base (result could be complex, which we don't support)
+            self->grad += 0;
+            obj->grad += 0;
+        }
     };
+    
     return new_value;
 }
+
 
 std::shared_ptr<Value> Value::tanh() {
     double n = this->data;
